@@ -1,6 +1,6 @@
 let mongoose = require('mongoose');
 
-const add = 'localhost:27017';
+const add = 'mongodb+srv://muralikrishnaDB:rainbow123_@cluster0-fuarp.mongodb.net/test?retryWrites=true&w=majority';
 const dataBase = 'taxiRentalDB';
 
 console.log("database");
@@ -11,7 +11,7 @@ class Database {
     }
     
   _connect() {
-         mongoose.connect(`mongodb://${add}/${dataBase}`)
+         mongoose.connect(`${add}/${dataBase}`)
          .then(() => {
            console.log('Database connection successful')
          })

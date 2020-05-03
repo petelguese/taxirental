@@ -4,7 +4,7 @@ let booking = require('./servlet/newBooking');
 let cabService = require('./servers/cabService');
 let dataBase = require('../database');
 let bodyParser = require('body-parser');
-
+const port = process.env.PORT || 3000
 app.use(bodyParser.json())
 app.use(cabService)
 app.use((req, res, next)=>{
@@ -13,7 +13,7 @@ app.use((req, res, next)=>{
 app.use((err, req, res, next)=>{
     console.log(err.stack)
 })
-app.listen(3000, (err)=>
+app.listen(port, (err)=>
 {
     if (err) throw err;
     else
