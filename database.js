@@ -11,7 +11,7 @@ class Database {
     }
     
   _connect() {
-         mongoose.connect(`${add}/${dataBase}`)
+         mongoose.connect(add)
          .then(() => {
            console.log('Database connection successful')
          })
