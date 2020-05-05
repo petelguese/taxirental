@@ -83,6 +83,9 @@ router.delete('/deleteCar',(req,res)=>{
         {
             return res.status(404).send("cannot perform delete operation- car is already booked or not available")
         }
+        else{
+            return res.status(200).send(result)
+        }
     })
     .catch(err=>{
         return res.status(500).send(err)
