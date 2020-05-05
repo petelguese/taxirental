@@ -3,6 +3,7 @@ let router = express.Router();
 let customerModel = require('../models/customerModel');
 let carModel = require('../models/carModel');
 let mongoose = require('mongoose')
+let util = require('util')
 //Booking
 router.post('/bookCar',(req,res)=>{
     if(!req.body)
@@ -10,40 +11,53 @@ router.post('/bookCar',(req,res)=>{
         return res.status(400).send('request body is missing')
     }
     let data = req.body
-    let bookingList = new customerModel(data)
-    bookingList.save()
-        .then(result=>{
-            let customerId = result.id
-            console.log("customer----id",result)
-            //return res.status(200).send(result)
-            if(result)
-            {
-                carModel.findOneAndUpdate({seatingCapacity:result.carType.seatingCapacity,model:result.carType.model,
-                    rentPerDay:result.carType.rentPerDay,bookingStatus:"no"},{bookingStatus:"yes",$addToSet:{customerId:customerId}},
-                    {new:true})
-                    .then(result=>{
-                        return res.status(200).send(result)
-                    })
-                    .catch(err=>{
-                        return res.status(500).send(err)
-                    })
-            }
-
-            // addId(result.id, data.carType, data.issueDate, function(err,result){
-            //     if(err)
-            //     {
-            //         return res.status(500).json(err)
-            //     }
-            //     else
-            //     {
-            //         console.log("id updated successfully")
-            //         return res.status(200).send(result)
-            //     }
-            // })
+    let carType = data.carType
+    let customerId
+    carModel.findOne({model:carType.model, seatingCapacity:carType.seatingCapacity, rentPerDay:carType.rentPerDay,bookingStatus:"no"})
+    .then(result=>{
+        let vehicleNumber = result.vehicleNumber
+        let bookingList = new customerModel(data)
+        bookingList.save()
+        .then(doc=>{
+            console.log(doc.id)
+            carModel.findOneAndUpdate({vehicleNumber:vehicleNumber},{bookingStatus:"yes",$addToSet:{customerId:doc.id}},{new:true})
+            .then(result=>{
+                return res.status(200).send(result)
+            })
+            .catch(err=>{
+                return res.status(500).send("error in updating")
+            })
         })
         .catch(err=>{
-           return res.status(500).json(err)
+            return res.status(500).send("cannot save data")
         })
+    })
+    .catch(err=>{
+        checkAvailability(data.issueDate, data.returnDate, function(err, result){
+            if(err)
+            {
+                console.error(err)
+                return res.status(500).send("error in fetching booked list")
+            }
+            else{
+                let bookingList = new customerModel(data)
+                bookingList.save()
+                .then(doc=>{
+                    carModel.findOneAndUpdate({vehicleNumber:result[0].vehicleNumber},{$addToSet:{customerId:doc.id}},{new:true})
+                    .then(result=>{
+                        console.log(result)
+                        return res.status(200).send(`Booked vehicle-${result.vehicleNumber}`)
+                    })
+                    .catch(err=>{
+                        return res.status(500).send("error in finding vehicle")
+                    })
+                })
+                .catch(err=>{
+                    return res.status(500).send("There are no available cars to book")
+                })
+            }
+        })
+    })
 })
 //add new car
 router.post('/addCar',(req,res)=>{
@@ -103,7 +117,7 @@ router.get('/getAvailableCars',(req,res)=>{
     let endDate = new Date(data.returnDate)
     carModel.find({bookingStatus:"no"})
     .then(result=>{
-        total_cars.push(result)
+        if(result.length>0){total_cars.push(result)}
         console.log(result)
     })
     carModel.find({bookingStatus:"yes"})
@@ -117,7 +131,11 @@ router.get('/getAvailableCars',(req,res)=>{
                 else{
                     console.log(result)
                     total_cars.push(result)
+                    if(result.length>0)
                     return res.status(200).send(total_cars)
+                    else{
+                        return res.status(200).send("no cars availabe on this date")
+                    }
                 }
             })
         }
@@ -130,18 +148,20 @@ router.get('/getAvailableCars',(req,res)=>{
 
 function checkAvailability(startDate, endDate, callback){
     carModel.find({bookingStatus:"yes"})
-    .then(result=>{
-        console.log(result[0].customerId[0]," ",result[0].customerId[1])
-        temp =0
+    .then(async result=>{
         let f_result= [];
         for (i in result)
         {
+            var temp = 0
             cust = result[i].customerId
             console.log(cust," ",cust.length)
             for(x in cust)
             {
-                customerModel.find({_id:cust[x],returnDate:{$gt:startDate}})
+                temp = 0
+                await customerModel.find({_id:cust[x],$or: [{returnDate: {$gt:startDate}},{startDate: {$lt:endDate}}]})
                 .then(result1=>{
+                    if(result1.length>0)
+                    temp = 1
                     console.log("result1 ",result1)
                 })
                 .catch(err=>{
@@ -149,8 +169,15 @@ function checkAvailability(startDate, endDate, callback){
                     callback(err, null)
                     return;
                 })
+                if(temp==1)
+                continue;
             }
-            f_result.push(result[i])
+            console.log("temp---",temp)
+            if(temp == 0) 
+            {
+                console.log("inside")
+                f_result.push(result[i])
+            }
             console.log("f_result",f_result)
         }
         callback(null,f_result)
