@@ -1,6 +1,5 @@
 let express = require("express");
 let app = express()
-let booking = require('./servlet/newBooking');
 let cabService = require('./servers/cabService');
 let dataBase = require('../database');
 let bodyParser = require('body-parser');
